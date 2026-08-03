@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Special Ops 1.6</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: sans-serif; }
+        #gameCanvas { width: 100%; height: 100%; display: block; }
+        #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 12px; height: 12px; transform: translate(-50%, -50%); }
+        #crosshair::before { content: ''; position: absolute; top: 5px; left: -8px; width: 28px; height: 2px; background: rgba(0, 255, 0, 0.8); }
+        #crosshair::after { content: ''; position: absolute; top: -8px; left: 5px; width: 2px; height: 28px; background: rgba(0, 255, 0, 0.8); }
+        .hud-panel { position: absolute; bottom: 15px; left: 15px; background: rgba(0,0,0,0.6); color: #ffb400; font-weight: bold; font-size: 18px; padding: 10px; border-radius: 8px; display: flex; gap: 15px; }
+        .btn { position: absolute; width: 65px; height: 65px; border-radius: 50%; background: rgba(255,255,255,0.25); color: white; font-weight: bold; display: flex; align-items: center; justify-content: center; pointer-events: auto; }
+        #shootBtn { bottom: 30px; right: 30px; width: 85px; height: 85px; background: rgba(255,0,0,0.5); }
+        #gyroBtn { top: 15px; right: 15px; width: auto; height: 40px; border-radius: 5px; padding: 0 10px; }
+        #modeBtn { top: 15px; left: 15px; width: auto; height: 40px; border-radius: 5px; padding: 0 10px; background: rgba(0,150,255,0.5); }
+        #joystickZone { position: absolute; bottom: 20px; left: 20px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; pointer-events: auto; }
+        #joystickKnob { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: rgba(255,180,0,0.7); border-radius: 50%; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="ui">
+        <div id="crosshair"></div>
+        <div class="hud-panel">
+            <div>HP: <span id="hpVal">100</span></div>
+            <div>AMMO: <span id="ammoVal">30/90</span></div>
+            <div>KILLS: <span id="killVal">0</span></div>
+        </div>
+        <button id="modeBtn" class="btn">REJIM: PLAY</button>
+        <button id="gyroBtn" class="btn">GYRO: OFF</button>
+        <div id="joystickZone"><div id="joystickKnob"></div></div>
+        <div id="shootBtn" class="btn">FIRE</div>
+    </div>
+    <script>
+        let scene, camera, renderer, gun, recoilGroup;
+        let ammo = 30, kills = 0, gyroActive = false, buildMode = false;
+        let moveForward = 0, moveRight = 0, bots = [], targetRecoilUp = 0;
+
+        function init() {
+            const canvas = document.getElementById('gameCanvas');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xdce6f2);
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            recoilGroup = new THREE.Group();
+            recoilGroup.add(camera);
+            scene.add(recoilGroup);
+            recoilGroup.position.set(0, 1.6, 0);
+
+            renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            const light = new THREE.DirectionalLight(0xffffff, 1.2);
+            light.position.set(20, 40, 20);
+            scene.add(light, new THREE.AmbientLight(0x777777));
+
+            createMap();
+            createGun();
+            spawnBot(-5, 0, -15);
+            spawnBot(10, 0, -20);
+
+            setupControls();
+            animate();
+        }function createMap() {
+            const ground = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshLambertMaterial({ color: 0xd2b48c }));
+            ground.rotation.x = -Math.PI / 2;
+            scene.add(ground);
+
+            for (let i = 0; i < 10; i++) {
+                const b = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), new THREE.MeshLambertMaterial({ color: 0x8b5a2b }));
+                b.position.set((Math.random() - 0.5) * 40, 1, -5 - Math.random() * 25);
+                scene.add(b);
+            }
+        }
+
+        function createGun() {
+            gun = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.6), new THREE.MeshBasicMaterial({ color: 0x222222 }));
+            const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.4), new THREE.MeshBasicMaterial({ color: 0x111111 }));
+            barrel.rotation.x = Math.PI / 2;
+            barrel.position.set(0, 0.03, -0.4);
+            gun.add(body, barrel);
+            gun.position.set(0.2, -0.2, -0.4);
+            camera.add(gun);
+        }
+
+        function spawnBot(x, y, z) {
+            const bot = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 1.8), new THREE.MeshLambertMaterial({ color: 0xcc3333 }));
+            body.position.y = 0.9;
+            bot.add(body);
+            bot.position.set(x, y, z);
+            scene.add(bot);
+            bots.push({ obj: bot, hp: 100 });
+        }
+
+        function shoot() {
+            if (ammo <= 0) return;
+            ammo--;
+            document.getElementById('ammoVal').innerText = ammo + "/90";
+            targetRecoilUp += 0.04;
+            gun.position.z = -0.3;
+
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            const intersects = raycaster.intersectObjects(bots.map(b => b.obj.children[0]));
+
+            if (intersects.length > 0) {
+                const hitObj = intersects[0].object.parent;
+                const idx = bots.findIndex(b => b.obj === hitObj);
+                if (idx !== -1) {
+                    bots[idx].hp -= 50;
+                    if (bots[idx].hp <= 0) {
+                        scene.remove(bots[idx].obj);
+                        bots.splice(idx, 1);
+                        kills++;
+                        document.getElementById('killVal').innerText = kills;
+                        setTimeout(() => spawnBot((Math.random() - 0.5) * 30, 0, -10 - Math.random() * 20), 2000);
+                    }
+                }
+            }
+        }
+
+        function setupControls() {
+            let touchStartX = 0, touchStartY = 0;
+            window.addEventListener('touchstart', (e) => {
+                if (e.touches[0].clientX > window.innerWidth / 2) {
+                    touchStartX = e.touches[0].clientX;
+                    touchStartY = e.touches[0].clientY;
+                }
+            });
+
+            window.addEventListener('touchmove', (e) => {
+                for (let touch of e.touches) {
+                    if (touch.clientX > window.innerWidth / 2) {
+                        let deltaX = touch.clientX - touchStartX;
+                        let deltaY = touch.clientY - touchStartY;
+                        recoilGroup.rotation.y -= deltaX * 0.005;
+                        camera.rotation.x = Math.max(-1.4, Math.min(1.4, camera.rotation.x - deltaY * 0.005));
+                        touchStartX = touch.clientX; touchStartY = touch.clientY;
+                    }
+                }
+            });
+
+            const knob = document.getElementById('joystickKnob');
+            const zone = document.getElementById('joystickZone');
+            zone.addEventListener('touchmove', (e) => {
+                const rect = zone.getBoundingClientRect();const touch = e.touches[0];
+                let x = touch.clientX - rect.left - 60, y = touch.clientY - rect.top - 60;
+                let dist = Math.min(40, Math.hypot(x, y)), angle = Math.atan2(y, x);
+                knob.style.transform = translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px);
+                moveRight = (Math.cos(angle) * dist) / 40; moveForward = -(Math.sin(angle) * dist) / 40;
+            });
+
+            zone.addEventListener('touchend', () => { knob.style.transform = translate(0px, 0px); moveForward = 0; moveRight = 0; });
+            document.getElementById('shootBtn').addEventListener('touchstart', (e) => { e.preventDefault(); shoot(); });
+
+            document.getElementById('modeBtn').addEventListener('click', () => {
+                buildMode = !buildMode;
+                document.getElementById('modeBtn').innerText = buildMode ? "REJIM: BUILDER" : "REJIM: PLAY";
+                if(buildMode) {
+                    const block = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), new THREE.MeshLambertMaterial({ color: 0x44aa44 }));
+                    const dir = new THREE.Vector3();
+                    camera.getWorldDirection(dir);
+                    block.position.copy(recoilGroup.position).add(dir.multiplyScalar(4));
+                    block.position.y = 1;
+                    scene.add(block);
+                }
+            });
+
+            document.getElementById('gyroBtn').addEventListener('click', () => {
+                gyroActive = !gyroActive;
+                document.getElementById('gyroBtn').innerText = gyroActive ? "GYRO: ON" : "GYRO: OFF";
+                if (gyroActive) {
+                    window.addEventListener('deviceorientation', (e) => {
+                        if(!gyroActive) return;
+                        if(e.gamma) recoilGroup.
