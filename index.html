@@ -2,23 +2,30 @@
 <html lang="uz">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Special Ops 1.6</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Special Ops 3D</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
-        body, html { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: sans-serif; }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: none; -webkit-touch-callout: none; }
+        html, body { width: 100vw; height: 100vh; overflow: hidden; background: #000; font-family: sans-serif; }
         #gameCanvas { width: 100%; height: 100%; display: block; }
         #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-        #crosshair { position: absolute; top: 50%; left: 50%; width: 12px; height: 12px; transform: translate(-50%, -50%); }
-        #crosshair::before { content: ''; position: absolute; top: 5px; left: -8px; width: 28px; height: 2px; background: rgba(0, 255, 0, 0.8); }
-        #crosshair::after { content: ''; position: absolute; top: -8px; left: 5px; width: 2px; height: 28px; background: rgba(0, 255, 0, 0.8); }
-        .hud-panel { position: absolute; bottom: 15px; left: 15px; background: rgba(0,0,0,0.6); color: #ffb400; font-weight: bold; font-size: 18px; padding: 10px; border-radius: 8px; display: flex; gap: 15px; }
-        .btn { position: absolute; width: 65px; height: 65px; border-radius: 50%; background: rgba(255,255,255,0.25); color: white; font-weight: bold; display: flex; align-items: center; justify-content: center; pointer-events: auto; }
-        #shootBtn { bottom: 30px; right: 30px; width: 85px; height: 85px; background: rgba(255,0,0,0.5); }
-        #gyroBtn { top: 15px; right: 15px; width: auto; height: 40px; border-radius: 5px; padding: 0 10px; }
-        #modeBtn { top: 15px; left: 15px; width: auto; height: 40px; border-radius: 5px; padding: 0 10px; background: rgba(0,150,255,0.5); }
-        #joystickZone { position: absolute; bottom: 20px; left: 20px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; pointer-events: auto; }
-        #joystickKnob { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: rgba(255,180,0,0.7); border-radius: 50%; }
+        
+        /* Crosshair */
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; transform: translate(-50%, -50%); }
+        #crosshair::before { content: ''; position: absolute; top: 4px; left: -10px; width: 28px; height: 2px; background: #00ff00; }
+        #crosshair::after { content: ''; position: absolute; top: -10px; left: 4px; width: 2px; height: 28px; background: #00ff00; }
+        
+        /* HUD */
+        .hud { position: absolute; top: 12px; left: 15px; background: rgba(0,0,0,0.6); color: #fff; font-size: 14px; padding: 6px 14px; border-radius: 15px; display: flex; gap: 12px; font-weight: bold; }
+        .hud span { color: #ffb400; }
+        
+        /* Buttons */
+        .btn { position: absolute; background: rgba(255,255,255,0.25); color: white; font-weight: bold; border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; display: flex; align-items: center; justify-content: justify; align-content: center; justify-content: center; pointer-events: auto; }
+        #shootBtn { bottom: 25px; right: 35px; width: 85px; height: 85px; background: rgba(255,0,0,0.6); font-size: 18px; }
+        
+        /* Joystick Zone */
+        #joystickContainer { position: absolute; bottom: 25px; left: 35px; width: 110px; height: 110px; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; pointer-events: auto; }
+        #joystickKnob { position: absolute; top: 30px; left: 30px; width: 50px; height: 50px; background: rgba(255,180,0,0.85); border-radius: 50%; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
@@ -26,25 +33,23 @@
     <canvas id="gameCanvas"></canvas>
     <div id="ui">
         <div id="crosshair"></div>
-        <div class="hud-panel">
-            <div>HP: <span id="hpVal">100</span></div>
+        <div class="hud">
             <div>AMMO: <span id="ammoVal">30/90</span></div>
             <div>KILLS: <span id="killVal">0</span></div>
         </div>
-        <button id="modeBtn" class="btn">REJIM: PLAY</button>
-        <button id="gyroBtn" class="btn">GYRO: OFF</button>
-        <div id="joystickZone"><div id="joystickKnob"></div></div>
+        <div id="joystickContainer"><div id="joystickKnob"></div></div>
         <div id="shootBtn" class="btn">FIRE</div>
     </div>
     <script>
         let scene, camera, renderer, gun, recoilGroup;
-        let ammo = 30, kills = 0, gyroActive = false, buildMode = false;
-        let moveForward = 0, moveRight = 0, bots = [], targetRecoilUp = 0;
+        let ammo = 30, kills = 0;
+        let moveForward = 0, moveRight = 0, bots = [];
 
         function init() {
             const canvas = document.getElementById('gameCanvas');
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0xdce6f2);
+            scene.background = new THREE.Color(0x7ec0ee); // Osmon
+
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             
             recoilGroup = new THREE.Group();
@@ -53,35 +58,46 @@
             recoilGroup.position.set(0, 1.6, 0);
 
             renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
 
             const light = new THREE.DirectionalLight(0xffffff, 1.2);
-            light.position.set(20, 40, 20);
+            light.position.set(10, 30, 10);
             scene.add(light, new THREE.AmbientLight(0x777777));
 
             createMap();
             createGun();
-            spawnBot(-5, 0, -15);
-            spawnBot(10, 0, -20);
+            
+            // Botlarni to'g'ri qarshisiga chiqarish
+            spawnBot(0, 0, -8);
+            spawnBot(-5, 0, -12);
+            spawnBot(5, 0, -10);
 
             setupControls();
+            window.addEventListener('resize', onResize);
             animate();
-        }function createMap() {
-            const ground = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshLambertMaterial({ color: 0xd2b48c }));
+        }function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function createMap() {
+            const ground = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshLambertMaterial({ color: 0x4a7c59 }));
             ground.rotation.x = -Math.PI / 2;
             scene.add(ground);
 
-            for (let i = 0; i < 10; i++) {
-                const b = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), new THREE.MeshLambertMaterial({ color: 0x8b5a2b }));
-                b.position.set((Math.random() - 0.5) * 40, 1, -5 - Math.random() * 25);
-                scene.add(b);
+            for (let i = 0; i < 15; i++) {
+                const box = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), new THREE.MeshLambertMaterial({ color: 0x8b5a2b }));
+                box.position.set((Math.random() - 0.5) * 40, 1, -5 - Math.random() * 25);
+                scene.add(box);
             }
         }
 
         function createGun() {
             gun = new THREE.Group();
-            const body = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.6), new THREE.MeshBasicMaterial({ color: 0x222222 }));
-            const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.4), new THREE.MeshBasicMaterial({ color: 0x111111 }));
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.14, 0.6), new THREE.MeshLambertMaterial({ color: 0x222222 }));
+            const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.4), new THREE.MeshLambertMaterial({ color: 0x111111 }));
             barrel.rotation.x = Math.PI / 2;
             barrel.position.set(0, 0.03, -0.4);
             gun.add(body, barrel);
@@ -93,7 +109,9 @@
             const bot = new THREE.Group();
             const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 1.8), new THREE.MeshLambertMaterial({ color: 0xcc3333 }));
             body.position.y = 0.9;
-            bot.add(body);
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.25), new THREE.MeshLambertMaterial({ color: 0xffcc99 }));
+            head.position.y = 1.9;
+            bot.add(body, head);
             bot.position.set(x, y, z);
             scene.add(bot);
             bots.push({ obj: bot, hp: 100 });
@@ -103,12 +121,15 @@
             if (ammo <= 0) return;
             ammo--;
             document.getElementById('ammoVal').innerText = ammo + "/90";
-            targetRecoilUp += 0.04;
             gun.position.z = -0.3;
 
             const raycaster = new THREE.Raycaster();
             raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-            const intersects = raycaster.intersectObjects(bots.map(b => b.obj.children[0]));
+            
+            let allBotParts = [];
+            bots.forEach(b => allBotParts.push(...b.obj.children));
+            
+            const intersects = raycaster.intersectObjects(allBotParts);
 
             if (intersects.length > 0) {
                 const hitObj = intersects[0].object.parent;
@@ -120,7 +141,7 @@
                         bots.splice(idx, 1);
                         kills++;
                         document.getElementById('killVal').innerText = kills;
-                        setTimeout(() => spawnBot((Math.random() - 0.5) * 30, 0, -10 - Math.random() * 20), 2000);
+                        setTimeout(() => spawnBot((Math.random() - 0.5) * 20, 0, -8 - Math.random() * 15), 1500);
                     }
                 }
             }
@@ -128,55 +149,81 @@
 
         function setupControls() {
             let touchStartX = 0, touchStartY = 0;
+            
+            // Ekran o'ng tomoni orqali kamerani burish (Look control)
             window.addEventListener('touchstart', (e) => {
-                if (e.touches[0].clientX > window.innerWidth / 2) {
-                    touchStartX = e.touches[0].clientX;
-                    touchStartY = e.touches[0].clientY;
-                }
-            });
-
-            window.addEventListener('touchmove', (e) => {
-                for (let touch of e.touches) {
+                for (let touch of e.changedTouches) {
                     if (touch.clientX > window.innerWidth / 2) {
-                        let deltaX = touch.clientX - touchStartX;
-                        let deltaY = touch.clientY - touchStartY;
-                        recoilGroup.rotation.y -= deltaX * 0.005;
-                        camera.rotation.x = Math.max(-1.4, Math.min(1.4, camera.rotation.x - deltaY * 0.005));
-                        touchStartX = touch.clientX; touchStartY = touch.clientY;
+                        touchStartX = touch.clientX;
+                        touchStartY = touch.clientY;
                     }
                 }
             });
 
-            const knob = document.getElementById('joystickKnob');
-            const zone = document.getElementById('joystickZone');
-            zone.addEventListener('touchmove', (e) => {
-                const rect = zone.getBoundingClientRect();const touch = e.touches[0];
-                let x = touch.clientX - rect.left - 60, y = touch.clientY - rect.top - 60;
-                let dist = Math.min(40, Math.hypot(x, y)), angle = Math.atan2(y, x);
-                knob.style.transform = translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px);
-                moveRight = (Math.cos(angle) * dist) / 40; moveForward = -(Math.sin(angle) * dist) / 40;
-            });
-
-            zone.addEventListener('touchend', () => { knob.style.transform = translate(0px, 0px); moveForward = 0; moveRight = 0; });
-            document.getElementById('shootBtn').addEventListener('touchstart', (e) => { e.preventDefault(); shoot(); });
-
-            document.getElementById('modeBtn').addEventListener('click', () => {
-                buildMode = !buildMode;
-                document.getElementById('modeBtn').innerText = buildMode ? "REJIM: BUILDER" : "REJIM: PLAY";
-                if(buildMode) {
-                    const block = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), new THREE.MeshLambertMaterial({ color: 0x44aa44 }));
-                    const dir = new THREE.Vector3();
-                    camera.getWorldDirection(dir);
-                    block.position.copy(recoilGroup.position).add(dir.multiplyScalar(4));
-                    block.position.y = 1;
-                    scene.add(block);
+            window.addEventListener('touchmove', (e) => {
+                for (let touch of e.changedTouches) {
+                    if (touch.clientX > window.innerWidth / 2) {
+                        let deltaX = touch.clientX - touchStartX;let deltaY = touch.clientY - touchStartY;
+                        recoilGroup.rotation.y -= deltaX * 0.005;
+                        camera.rotation.x = Math.max(-1.2, Math.min(1.2, camera.rotation.x - deltaY * 0.005));
+                        touchStartX = touch.clientX; 
+                        touchStartY = touch.clientY;
+                    }
                 }
             });
 
-            document.getElementById('gyroBtn').addEventListener('click', () => {
-                gyroActive = !gyroActive;
-                document.getElementById('gyroBtn').innerText = gyroActive ? "GYRO: ON" : "GYRO: OFF";
-                if (gyroActive) {
-                    window.addEventListener('deviceorientation', (e) => {
-                        if(!gyroActive) return;
-                        if(e.gamma) recoilGroup.
+            // Joystik (Yurish)
+            const knob = document.getElementById('joystickKnob');
+            const zone = document.getElementById('joystickContainer');
+            
+            const handleJoystick = (e) => {
+                const rect = zone.getBoundingClientRect();
+                const touch = e.touches[0];
+                let x = touch.clientX - rect.left - 55;
+                let y = touch.clientY - rect.top - 55;
+                let dist = Math.min(35, Math.hypot(x, y));
+                let angle = Math.atan2(y, x);
+                
+                knob.style.transform = translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px);
+                moveRight = (Math.cos(angle) * dist) / 35; 
+                moveForward = -(Math.sin(angle) * dist) / 35;
+            };
+
+            zone.addEventListener('touchstart', handleJoystick);
+            zone.addEventListener('touchmove', handleJoystick);
+            zone.addEventListener('touchend', () => { 
+                knob.style.transform = translate(0px, 0px); 
+                moveForward = 0; 
+                moveRight = 0; 
+            });
+
+            // Otish (FIRE)
+            const shootBtn = document.getElementById('shootBtn');
+            shootBtn.addEventListener('touchstart', (e) => { 
+                e.preventDefault(); 
+                shoot(); 
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const speed = 0.12;
+            const forwardVector = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), recoilGroup.rotation.y);
+            const sideVector = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), recoilGroup.rotation.y);
+            
+            recoilGroup.position.addScaledVector(forwardVector, moveForward * speed);
+            recoilGroup.position.addScaledVector(sideVector, moveRight * speed);
+
+            gun.position.z += (-0.4 - gun.position.z) * 0.1;
+
+            bots.forEach(b => {
+                b.obj.lookAt(recoilGroup.position.x, 0, recoilGroup.position.z);
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
