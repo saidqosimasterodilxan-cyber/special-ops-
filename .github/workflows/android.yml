@@ -26,8 +26,10 @@ jobs:
 
       - name: Capacitor va Android sozlamalari
         run: |
+          mkdir www
+          cp index.html www/
           npm install --legacy-peer-deps
-          npx cap init "Special Ops" com.specialops.csgame --web-dir .
+          npx cap init "Special Ops" com.specialops.csgame --web-dir www
           npx cap add android
           npx cap sync android
 
