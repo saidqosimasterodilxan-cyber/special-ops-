@@ -1,0 +1,44 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Kodni yuklab olish
+        uses: actions/checkout@v4
+
+      - name: Node.js o'rnatish
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Java JDK 17 o'rnatish
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Capacitor va Android sozlamalari
+        run: |
+          npm install --legacy-peer-deps
+          npx cap init "Special Ops" com.specialops.csgame --web-dir .
+          npx cap add android
+          npx cap sync android
+
+      - name: Gradle loyihani yig'ish (APK)
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: APK faylini tayyor holatda saqlash
+        uses: actions/upload-artifact@v4
+        with:
+          name: special-ops-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
